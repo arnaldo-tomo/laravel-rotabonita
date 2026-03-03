@@ -6,6 +6,7 @@ namespace Rotabonita;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Routing\Router;
+use Illuminate\Routing\UrlGenerator;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 
@@ -15,9 +16,10 @@ use Illuminate\Support\ServiceProvider;
  * Bootstraps the entire package with zero configuration:
  *  1. Registers the TokenGenerator singleton.
  *  2. Registers the RouteBindingOverride singleton.
- *  3. Hooks into Eloquent model creation to auto-assign public_id tokens.
- *  4. Overrides route model binding globally for all qualifying models.
- *  5. Publishes the migration stub.
+ *  3. Replaces Laravel's UrlGenerator to use public_id in route() calls.
+ *  4. Hooks into Eloquent model creation to auto-assign public_id tokens.
+ *  5. Overrides route model binding globally for all qualifying models.
+ *  6. Publishes the migration stub.
  */
 final class RotabonitaServiceProvider extends ServiceProvider
 {
@@ -36,6 +38,8 @@ final class RotabonitaServiceProvider extends ServiceProvider
                 $this->app->make(TokenGenerator::class)
             );
         });
+
+        $this->registerUrlGenerator();
     }
 
     /**
@@ -51,6 +55,33 @@ final class RotabonitaServiceProvider extends ServiceProvider
         $this->publishMigrations();
         $this->registerTokenListener();
         $this->registerRouteBindings();
+    }
+
+    /**
+     * Replace Laravel's UrlGenerator with Rotabonita's version.
+     *
+     * This is the key to making `route('posts.show', $post)` automatically
+     * produce `/posts/BYPWtH2qYos` instead of `/posts/1` — with ZERO changes
+     * required from the developer.
+     *
+     * We use `extend('url', ...)` which Laravel calls at the moment the
+     * `url` service is first resolved from the container. The returned
+     * RotabonitaUrlGenerator then becomes the application-wide URL generator.
+     *
+     * All subsequent calls to `setSessionResolver()`, `setKeyResolver()`, etc.
+     * from other service providers are called on OUR generator (since it's
+     * now the `url` singleton), so signed routes and all other features
+     * continue to work exactly as before.
+     */
+    private function registerUrlGenerator(): void
+    {
+        $this->app->extend('url', function (UrlGenerator $url, $app) {
+            return new RotabonitaUrlGenerator(
+                $app['router']->getRoutes(),
+                $app['request'],
+                $app['config']['app.asset_url'] ?? null
+            );
+        });
     }
 
     /**
