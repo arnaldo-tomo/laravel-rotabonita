@@ -7,8 +7,8 @@ namespace Rotabonita;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Routing\Events\RouteMatched;
-use Illuminate\Routing\ImplicitRouteBinding;
 use Illuminate\Routing\UrlGenerator;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
@@ -77,7 +77,7 @@ final class RotabonitaServiceProvider extends ServiceProvider
 
             foreach ($signatureParameters as $parameter) {
                 // Determine parameter name mapped according to original framework heuristics
-                $paramName = ImplicitRouteBinding::getParameterName($parameter->getName(), $parameters);
+                $paramName = $this->getParameterName($parameter->getName(), $parameters);
 
                 if ($paramName && isset($parameters[$paramName])) {
                     $value = $parameters[$paramName];
@@ -107,5 +107,22 @@ final class RotabonitaServiceProvider extends ServiceProvider
         }
 
         return (bool) preg_match('/^[A-Za-z0-9_\-]+$/', $value);
+    }
+
+    /**
+     * Return the parameter name if it exists in the array of parameters.
+     * Replicates Laravel's protected ImplicitRouteBinding::getParameterName() mechanism.
+     */
+    private function getParameterName(string $name, array $parameters): ?string
+    {
+        if (array_key_exists($name, $parameters)) {
+            return $name;
+        }
+
+        if (array_key_exists($snakedName = Str::snake($name), $parameters)) {
+            return $snakedName;
+        }
+
+        return null;
     }
 }
