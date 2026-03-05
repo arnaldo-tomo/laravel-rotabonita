@@ -1,6 +1,5 @@
-<p align="center">
-  <img src=".github/banner.png" alt="Rotabonita" width="100%">
-</p>
+![Rotabonita](.github/banner.png)
+
 
 # Rotabonita
 
